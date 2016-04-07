@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 import org.apache.mesos.{ Protos => mesos }
 
 case class IpAddress(
-    groups: Seq[String] = Seq.empty,
+    groups: Seq[String] = Nil,
     labels: Map[String, String] = Map.empty[String, String],
     discoveryInfo: DiscoveryInfo = DiscoveryInfo.empty) {
 
