@@ -231,7 +231,12 @@ private class AppTaskLauncherActor(
   private[this] def receiveTaskLaunchNotification: Receive = {
     case TaskOpSourceDelegate.TaskOpRejected(op, reason) if inFlight(op) =>
       removeTask(op.taskId)
-      tasksToLaunch += 1
+      op match {
+        // only increment for launch ops, not for reservations:
+        case _: TaskOp.Launch => tasksToLaunch += 1
+        case _                => ()
+      }
+
       log.info("Task launch for '{}' was REJECTED, reason '{}', rescheduling. {}", op.taskId, reason, status)
       OfferMatcherRegistration.manageOfferMatcherStatus()
 
@@ -331,12 +336,16 @@ private class AppTaskLauncherActor(
   }
 
   private[this] def replyWithQueuedTaskCount(): Unit = {
+    val taskLaunchesInFlight =
+      inFlightTaskOperations
+        .keys
+        .count(taskId => tasksMap.get(taskId).exists(_.launched.isDefined))
     sender() ! QueuedTaskInfo(
       app,
       tasksLeftToLaunch = tasksToLaunch,
-      taskLaunchesInFlight = inFlightTaskOperations.size,
+      taskLaunchesInFlight = taskLaunchesInFlight,
       // don't count tasks that are not launched in the tasksMap
-      tasksLaunched = tasksMap.values.count(_.launched.isDefined) - inFlightTaskOperations.size,
+      tasksLaunched = tasksMap.values.count(_.launched.isDefined) - taskLaunchesInFlight,
       backOffUntil.getOrElse(clock.now())
     )
   }
